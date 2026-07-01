@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+backend/venv/
+.venv/
+env/
+
+# VS Code
+.vscode/
+
+# Generated outputs
+backend/outputs/
+
+# Streamlit
+.streamlit/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/

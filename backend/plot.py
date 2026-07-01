@@ -2,6 +2,7 @@
 from io import BytesIO
 import os
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import streamlit as st
@@ -580,6 +581,39 @@ def plot_precision_recall_curve(
 # Feature Importance
 # ==========================================================
 
+def aggregate_feature_importances(
+    feature_names,
+    importances,
+    original_features
+):
+    """
+    Aggregate one-hot encoded feature importances back to their original feature names.
+    """
+    aggregated = {}
+    
+    # We clean the names (remove "num__" and "cat__")
+    cleaned_names = []
+    for name in feature_names:
+        name = name.replace("num__", "").replace("cat__", "")
+        cleaned_names.append(name)
+        
+    for name, imp in zip(cleaned_names, importances):
+        matched = False
+        # Sort original features in descending order of length so that Embarked_Date matches before Embarked
+        sorted_orig = sorted(original_features, key=len, reverse=True)
+        
+        for orig in sorted_orig:
+            if name == orig or name.startswith(orig + "_"):
+                aggregated[orig] = aggregated.get(orig, 0.0) + imp
+                matched = True
+                break
+                
+        if not matched:
+            aggregated[name] = aggregated.get(name, 0.0) + imp
+            
+    return list(aggregated.keys()), list(aggregated.values())
+
+
 def plot_feature_importance(
 
     results,
@@ -604,53 +638,119 @@ def plot_feature_importance(
         )
 
         return None
+    
     importance = model.feature_importances_
-    feature_names = clean_feature_names(
-    results["feature_names"]
+    
+    # Get original features DataFrame to extract original feature list
+    X_df = results.get("X_train", results.get("X"))
+    if X_df is not None:
+        original_features = list(X_df.columns)
+    else:
+        original_features = []
 
-)
-    order = np.argsort(
-    importance
+    # Aggregate one-hot encoded importances back to original features
+    aggregated_names, aggregated_imps = aggregate_feature_importances(
+        results["feature_names"],
+        importance,
+        original_features
+    )
 
-)[::-1]
+    # Convert to numpy arrays for sorting
+    aggregated_names = np.array(aggregated_names)
+    aggregated_imps = np.array(aggregated_imps)
 
-    importance = importance[order]
-    feature_names = np.array(
-        feature_names
+    # Sort in descending order
+    order = np.argsort(aggregated_imps)[::-1]
+    aggregated_imps = aggregated_imps[order]
+    aggregated_names = aggregated_names[order]
 
-    )[order]
+    # Keep top 10-15 (e.g. 15) features
+    max_features = 15
+    if len(aggregated_names) > max_features:
+        aggregated_imps = aggregated_imps[:max_features]
+        aggregated_names = aggregated_names[:max_features]
 
-    max_features = 20
-    if len(feature_names) > max_features:
-        importance = importance[-max_features:]
-        feature_names = feature_names[-max_features:]
     fig, ax = setup_figure(
         figure_width
-
     )
 
     ax.barh(
-
-    feature_names[::-1],
-
-    importance[::-1],
-
-    color="royalblue",
-
-    edgecolor="black"
-
-)
+        aggregated_names[::-1],
+        aggregated_imps[::-1],
+        color="royalblue",
+        edgecolor="black"
+    )
 
     apply_plot_style(
-
         ax,
         xlabel="Feature Importance",
         ylabel="Features",
         legend=False
-
     )
 
     return fig
+
+
+# ==========================================================
+# Class Distribution
+# ==========================================================
+
+def plot_class_distribution(
+    results,
+    figure_width
+):
+    """
+    Plot the distribution of classes in the target variable.
+    """
+    # Use y_train if available, otherwise y_test
+    y_series = results.get("y_train", results.get("y_test"))
+    
+    if y_series is None:
+        st.warning("Target class distribution data is not available.")
+        return None
+        
+    # Count samples per class
+    class_counts = pd.Series(y_series).value_counts().sort_index()
+    
+    fig, ax = setup_figure(figure_width)
+    
+    # Plot vertical bars
+    classes = [str(c) for c in class_counts.index]
+    counts = class_counts.values
+    
+    ax.bar(
+        classes,
+        counts,
+        color="royalblue",
+        edgecolor="black",
+        alpha=0.8,
+        width=0.5
+    )
+    
+    # Add count label on top of each bar
+    for i, count in enumerate(counts):
+        ax.annotate(
+            str(count),
+            xy=(i, count),
+            xytext=(0, 3),  # 3 points vertical offset
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=10,
+            weight="bold"
+        )
+        
+    # Style formatting
+    target_label = results.get("target_name", "Target")
+    apply_plot_style(
+        ax,
+        xlabel=target_label,
+        ylabel="Sample Count",
+        legend=False
+    )
+    
+    return fig
+
 
 # ==========================================================
 # Regression Plot Dictionary
@@ -672,7 +772,8 @@ CLASSIFICATION_PLOTS = {
     "Confusion Matrix": plot_confusion_matrix,
     "ROC Curve": plot_roc_curve,
     "Precision-Recall Curve": plot_precision_recall_curve,
-    "Feature Importance": plot_feature_importance
+    "Feature Importance": plot_feature_importance,
+    "Class Distribution": plot_class_distribution
 }
 
 # Show Regression Plots
@@ -685,51 +786,54 @@ def show_regression_plots(
     export_format
 
 ):
+    generated_plots = []
 
     for plot_name in selected_plots:
         if plot_name not in REGRESSION_PLOTS:
             continue
 
-        st.subheader(plot_name)
         fig = REGRESSION_PLOTS[plot_name](
-
             results,
             figure_width
         )
 
         if fig is None:
             continue
-        st.pyplot(fig)
+
         buffer = BytesIO()
+        dpi_val = {
+            "Screen Preview (150 DPI)": 150,
+            "Publication (300 DPI)": 300,
+            "High Quality (600 DPI)": 600,
+            "Ultra Quality (1200 DPI)": 1200
+        }.get(plot_quality, 300)
 
         fig.savefig(
-        buffer,
-        format=export_format.lower(),
-            dpi={
-        "Screen Preview (150 DPI)":150,
-        "Publication (300 DPI)":300,
-        "High Quality (600 DPI)":600,
-        "Ultra Quality (1200 DPI)":1200
-        }[plot_quality],
-        bbox_inches="tight"
-)
+            buffer,
+            format=export_format.lower(),
+            dpi=dpi_val,
+            bbox_inches="tight"
+        )
+        buffer.seek(0)
 
-    buffer.seek(0)
+        # Automatically write the generated plot to the outputs directory
+        save_figure(fig, plot_name, export_format, plot_quality)
 
-    st.download_button(
+        generated_plots.append((plot_name, fig, buffer))
 
-    label=f"⬇ Download {plot_name}",
-
-    data=buffer,
-
-    file_name=f"{plot_name}.{export_format.lower()}",
-
-    mime=f"image/{export_format.lower()}"
-
-)
-
+    for plot_name, fig, buffer in generated_plots:
+        st.subheader(plot_name)
+        st.pyplot(fig)
         
-    plt.close(fig)
+        btn_key = f"download_reg_{plot_name.lower().replace(' ', '_')}"
+        st.download_button(
+            label=f"⬇ Download {plot_name}",
+            data=buffer,
+            file_name=f"{plot_name}.{export_format.lower()}",
+            mime=f"image/{export_format.lower()}",
+            key=btn_key
+        )
+        plt.close(fig)
 
 
 # Show Classification Plots
@@ -742,53 +846,54 @@ def show_classification_plots(
     export_format
 
 ):
+    generated_plots = []
 
     for plot_name in selected_plots:
         if plot_name not in CLASSIFICATION_PLOTS:
             continue
-        st.subheader(plot_name)
 
         fig = CLASSIFICATION_PLOTS[plot_name](
-
             results,
             figure_width
         )
 
         if fig is None:
             continue
-        st.pyplot(fig)
-
-        
 
         buffer = BytesIO()
+        dpi_val = {
+            "Screen Preview (150 DPI)": 150,
+            "Publication (300 DPI)": 300,
+            "High Quality (600 DPI)": 600,
+            "Ultra Quality (1200 DPI)": 1200
+        }.get(plot_quality, 300)
 
         fig.savefig(
-        buffer,
-        format=export_format.lower(),
-            dpi={
-        "Screen Preview (150 DPI)":150,
-        "Publication (300 DPI)":300,
-        "High Quality (600 DPI)":600,
-        "Ultra Quality (1200 DPI)":1200
-        }[plot_quality],
-        bbox_inches="tight"
-)
+            buffer,
+            format=export_format.lower(),
+            dpi=dpi_val,
+            bbox_inches="tight"
+        )
+        buffer.seek(0)
 
-    buffer.seek(0)
+        # Automatically write the generated plot to the outputs directory
+        save_figure(fig, plot_name, export_format, plot_quality)
 
-    st.download_button(
+        generated_plots.append((plot_name, fig, buffer))
 
-    label=f"⬇ Download {plot_name}",
+    for plot_name, fig, buffer in generated_plots:
+        st.subheader(plot_name)
+        st.pyplot(fig)
 
-    data=buffer,
-
-    file_name=f"{plot_name}.{export_format.lower()}",
-
-    mime=f"image/{export_format.lower()}"
-
-)
-
-    plt.close(fig)
+        btn_key = f"download_clf_{plot_name.lower().replace(' ', '_')}"
+        st.download_button(
+            label=f"⬇ Download {plot_name}",
+            data=buffer,
+            file_name=f"{plot_name}.{export_format.lower()}",
+            mime=f"image/{export_format.lower()}",
+            key=btn_key
+        )
+        plt.close(fig)
 
 # Main Plot Function
 def show_plots(

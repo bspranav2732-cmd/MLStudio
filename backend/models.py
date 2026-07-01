@@ -386,6 +386,10 @@ def train_model(
             y
         )
 
+        feature_names = pipeline.named_steps[
+            "preprocessor"
+        ].get_feature_names_out()
+
         return {
 
             "problem_type": problem_type,
@@ -395,6 +399,10 @@ def train_model(
             "split_method": split_method,
 
             "model": pipeline,
+
+            "pipeline": pipeline,
+
+            "feature_names": feature_names,
 
             "X": X,
 

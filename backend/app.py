@@ -155,6 +155,7 @@ if uploaded_file is not None:
             pipeline = run_training(df, config)
             st.session_state["results"] = pipeline["results"]
             st.session_state["evaluation"] = pipeline["evaluation"]
+            st.session_state["config"] = config
 
             st.success("✅ Model Trained Successfully!")
 
@@ -190,4 +191,15 @@ if uploaded_file is not None:
                 plot_quality=viz["plot_quality"],
                 export_format=viz["export_format"]
             )
+
+    # ==========================================================
+    # Export System
+    # ==========================================================
+    if "results" in st.session_state and "evaluation" in st.session_state and "config" in st.session_state:
+        from export.export_ui import show_export_section
+        show_export_section(
+            st.session_state["config"],
+            st.session_state["results"],
+            st.session_state["evaluation"]
+        )
 print(f"Startup Time: {time.time() - start:.2f} seconds")
