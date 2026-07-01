@@ -111,6 +111,20 @@ def evaluate(results):
             "Invalid Problem Type"
         )
 
+    # Compute training metrics for Generalization Comparison
+    train_metrics = {}
+    if "y_train" in results and "y_train_pred" in results:
+        if problem_type == "Regression":
+            train_metrics = Evaluator.regression_metrics(results["y_train"], results["y_train_pred"])
+        else:
+            train_metrics = Evaluator.classification_metrics(results["y_train"], results["y_train_pred"])
+    elif "X" in results and "y" in results and "model" in results:
+        y_train_pred = results["model"].predict(results["X"])
+        if problem_type == "Regression":
+            train_metrics = Evaluator.regression_metrics(results["y"], y_train_pred)
+        else:
+            train_metrics = Evaluator.classification_metrics(results["y"], y_train_pred)
+
     return {
 
         "problem_type": problem_type,
@@ -119,5 +133,7 @@ def evaluate(results):
 
         "split_method": results["split_method"],
 
-        "metrics": metrics
+        "metrics": metrics,
+        
+        "train_metrics": train_metrics
     }

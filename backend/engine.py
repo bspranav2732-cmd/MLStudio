@@ -1,3 +1,4 @@
+import time
 from models import train_model
 from evaluation import evaluate
 
@@ -6,6 +7,7 @@ def run_training(df, config):
     """
     Complete ML pipeline.
     """
+    start_time = time.time()
 
     # -------------------------------
     # Prepare Dataset
@@ -37,11 +39,14 @@ def run_training(df, config):
 
     evaluation = evaluate(results)
 
+    training_time = time.time() - start_time
+
     # -------------------------------
     # Return Pipeline
     # -------------------------------
 
     return {
         "results": results,
-        "evaluation": evaluation
+        "evaluation": evaluation,
+        "training_time": training_time
     }

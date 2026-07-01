@@ -1,5 +1,5 @@
 """
-Common export utilities for ML Studio.
+Common export utilities for Solvosys.
 """
 
 import os
@@ -7,10 +7,10 @@ from typing import Dict, Any, Optional
 
 class ExportContext:
     """
-    Standard context object containing all components of an ML Studio training run.
+    Standard context object containing all components of a Solvosys training run.
     This acts as the standard interface for all exporter modules.
     """
-    def __init__(self, config: Dict[str, Any], results: Dict[str, Any], evaluation: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any], results: Dict[str, Any], evaluation: Dict[str, Any], comparison_runs: Optional[list] = None):
         """
         Initialize the ExportContext.
 
@@ -18,13 +18,15 @@ class ExportContext:
             config (dict): The training configuration.
             results (dict): The training results, including model and datasets.
             evaluation (dict): The evaluation metrics.
+            comparison_runs (list, optional): Historical experiment runs list.
         """
         self.config = config
         self.results = results
         self.evaluation = evaluation
+        self.comparison_runs = comparison_runs if comparison_runs is not None else []
 
 
-def create_export_context(config: Dict[str, Any], results: Dict[str, Any], evaluation: Dict[str, Any]) -> ExportContext:
+def create_export_context(config: Dict[str, Any], results: Dict[str, Any], evaluation: Dict[str, Any], comparison_runs: Optional[list] = None) -> ExportContext:
     """
     Factory function to create an ExportContext object.
 
@@ -32,11 +34,12 @@ def create_export_context(config: Dict[str, Any], results: Dict[str, Any], evalu
         config (dict): The training configuration.
         results (dict): The training results.
         evaluation (dict): The evaluation metrics.
+        comparison_runs (list, optional): Historical experiment runs list.
 
     Returns:
         ExportContext: The constructed context.
     """
-    return ExportContext(config, results, evaluation)
+    return ExportContext(config, results, evaluation, comparison_runs)
 
 
 def format_hyperparameters(hyperparameters: Dict[str, Any]) -> str:

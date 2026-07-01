@@ -14,9 +14,12 @@ env/
 
 # Generated outputs
 backend/outputs/
-
-# Streamlit
-.streamlit/
+*.pdf
+*.zip
+*.png
+*.jpg
+*.jpeg
+*.csv
 
 # Logs
 *.log

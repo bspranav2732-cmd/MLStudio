@@ -1,11 +1,9 @@
-import time
-start = time.time()
 import streamlit as st
 from dataset import load_dataset, dataset_summary
 from ui import (
     show_sidebar,upload_dataset,show_dataset_summary,select_target,
     select_problem_type,select_features,select_model,select_split,
-    show_metrics, visualization_panel,preprocessing_panel )
+    show_metrics, visualization_panel,preprocessing_panel, inject_custom_css )
 from plot import show_plots
 from models import (REGRESSION_MODELS,CLASSIFICATION_MODELS)
 from hyperparameters import get_hyperparameters
@@ -16,12 +14,14 @@ from engine import run_training
 # ----------------------------------------
 
 st.set_page_config(
-    page_title="ML Studio",
+    page_title="Solvosys",
    
     layout="wide"
 )
 
-st.title("ML Studio")
+inject_custom_css()
+
+st.title("Solvosys")
 
 if "project" not in st.session_state:
 
@@ -155,51 +155,72 @@ if uploaded_file is not None:
             pipeline = run_training(df, config)
             st.session_state["results"] = pipeline["results"]
             st.session_state["evaluation"] = pipeline["evaluation"]
+            st.session_state["training_time"] = pipeline.get("training_time", 0.0)
             st.session_state["config"] = config
 
-            st.success("✅ Model Trained Successfully!")
+            # Invalidate export cache so artifacts regenerate for new model
+            st.session_state["export_cache"] = {}
+
+            st.success("Model Trained Successfully.")
 
     # ==========================================================
-    # Evaluation
+    # Results & Comparison Tabs
     # ==========================================================
+    st.divider()
+    tab_current, tab_compare = st.tabs(["Current Experiment", "Compare Models"])
 
-    if "evaluation" in st.session_state:
+    with tab_current:
+        # ==========================================================
+        # Evaluation
+        # ==========================================================
+        if "evaluation" in st.session_state:
+            show_metrics(
+                st.session_state["results"]["problem_type"],
+                st.session_state["evaluation"]["metrics"]
+            )
+            
+            # Button to add current run to comparison list
+            st.write("")
+            if st.button("Add Current Run to Comparison", use_container_width=True):
+                if "comparison_runs" not in st.session_state:
+                    st.session_state["comparison_runs"] = []
+                
+                from comparison import add_run
+                st.session_state["comparison_runs"] = add_run(
+                    st.session_state["comparison_runs"],
+                    st.session_state["config"],
+                    st.session_state["evaluation"],
+                    st.session_state.get("training_time", 0.0)
+                )
+                st.toast(f"Added model '{st.session_state['config']['model_name']}' to comparison!")
+                st.rerun()
 
-        show_metrics(
-            st.session_state["results"]["problem_type"],
-            st.session_state["evaluation"]["metrics"]
-        )
+        # ==========================================================
+        # Visualization
+        # ==========================================================
+        if "results" in st.session_state:
+            results = st.session_state["results"]
+            viz = visualization_panel(results["problem_type"])
+            if viz["generate"]:
+                show_plots(
+                    results=results,
+                    selected_plots=viz["selected_plots"],
+                    figure_width=viz["figure_width"],
+                    plot_quality=viz["plot_quality"],
+                    export_format=viz["export_format"]
+                )
 
-    # ==========================================================
-    # Visualization
-    # ==========================================================
-
-    if "results" in st.session_state:
-
-        results = st.session_state["results"]
-
-        viz = visualization_panel(
-            results["problem_type"]
-        )
-
-        if viz["generate"]:
-
-            show_plots(
-                results=results,
-                selected_plots=viz["selected_plots"],
-                figure_width=viz["figure_width"],
-                plot_quality=viz["plot_quality"],
-                export_format=viz["export_format"]
+        # ==========================================================
+        # Export System
+        # ==========================================================
+        if "results" in st.session_state and "evaluation" in st.session_state and "config" in st.session_state:
+            from export.export_ui import show_export_section
+            show_export_section(
+                st.session_state["config"],
+                st.session_state["results"],
+                st.session_state["evaluation"]
             )
 
-    # ==========================================================
-    # Export System
-    # ==========================================================
-    if "results" in st.session_state and "evaluation" in st.session_state and "config" in st.session_state:
-        from export.export_ui import show_export_section
-        show_export_section(
-            st.session_state["config"],
-            st.session_state["results"],
-            st.session_state["evaluation"]
-        )
-print(f"Startup Time: {time.time() - start:.2f} seconds")
+    with tab_compare:
+        from comparison_ui import show_comparison_tab
+        show_comparison_tab(problem_type)

@@ -62,6 +62,10 @@ def get_imports_code(config: Dict[str, Any]) -> str:
     elif model_name == "Polynomial Regression":
         imports.append("from sklearn.linear_model import LinearRegression")
         imports.append("from sklearn.preprocessing import PolynomialFeatures")
+    elif model_name == "Lasso Regression":
+        imports.append("from sklearn.linear_model import Lasso")
+    elif model_name == "Elastic Net":
+        imports.append("from sklearn.linear_model import ElasticNet")
     elif model_name == "Decision Tree":
         if problem_type == "Regression":
             imports.append("from sklearn.tree import DecisionTreeRegressor")
@@ -72,14 +76,16 @@ def get_imports_code(config: Dict[str, Any]) -> str:
             imports.append("from sklearn.ensemble import RandomForestRegressor")
         else:
             imports.append("from sklearn.ensemble import RandomForestClassifier")
+    elif model_name == "XGBoost Regressor":
+        imports.append("from xgboost import XGBRegressor")
+    elif model_name == "CatBoost Regressor":
+        imports.append("from catboost import CatBoostRegressor")
     elif model_name == "Logistic Regression":
         imports.append("from sklearn.linear_model import LogisticRegression")
-    elif model_name == "K-Nearest Neighbors":
-        imports.append("from sklearn.neighbors import KNeighborsClassifier")
-    elif model_name == "Naive Bayes":
-        imports.append("from sklearn.naive_bayes import GaussianNB")
-    elif model_name == "Support Vector Machine":
-        imports.append("from sklearn.svm import SVC")
+    elif model_name == "XGBoost Classifier":
+        imports.append("from xgboost import XGBClassifier")
+    elif model_name == "CatBoost Classifier":
+        imports.append("from catboost import CatBoostClassifier")
 
     # Metric imports
     if problem_type == "Regression":
@@ -91,7 +97,7 @@ def get_imports_code(config: Dict[str, Any]) -> str:
             "from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix"
         )
         # For classification, we will also import curves if probability is supported
-        if model_name in ["Logistic Regression", "K-Nearest Neighbors", "Support Vector Machine", "Random Forest", "Decision Tree", "Naive Bayes"]:
+        if model_name in ["Logistic Regression", "Random Forest", "Decision Tree", "XGBoost Classifier", "CatBoost Classifier"]:
             imports.append("from sklearn.metrics import roc_curve, auc, precision_recall_curve")
 
     return "\n".join(sorted(list(set(imports)), key=lambda s: (not s.startswith("import"), s)))
@@ -170,31 +176,93 @@ def get_model_instantiation_code(problem_type: str, model_name: str, hp: Dict[st
             f")"
         )
         
-    elif model_name == "K-Nearest Neighbors":
-        n_neighbors = hp.get("n_neighbors", 5)
-        weights = hp.get("weights", "uniform")
-        metric = hp.get("metric", "minkowski")
+    elif model_name == "Lasso Regression":
+        alpha = hp.get("alpha", 1.0)
+        max_iter = hp.get("max_iter", 1000)
         return (
-            f"model = KNeighborsClassifier(\n"
-            f"    n_neighbors={n_neighbors},\n"
-            f"    weights='{weights}',\n"
-            f"    metric='{metric}'\n"
+            f"model = Lasso(\n"
+            f"    alpha={alpha},\n"
+            f"    max_iter={max_iter},\n"
+            f"    random_state=42\n"
             f")"
         )
         
-    elif model_name == "Naive Bayes":
-        return "model = GaussianNB()"
-        
-    elif model_name == "Support Vector Machine":
-        c = hp.get("C", 1.0)
-        kernel = hp.get("kernel", "rbf")
-        gamma = hp.get("gamma", "scale")
+    elif model_name == "Elastic Net":
+        alpha = hp.get("alpha", 1.0)
+        l1_ratio = hp.get("l1_ratio", 0.5)
+        max_iter = hp.get("max_iter", 1000)
         return (
-            f"model = SVC(\n"
-            f"    C={c},\n"
-            f"    kernel='{kernel}',\n"
-            f"    gamma='{gamma}',\n"
-            f"    probability=True\n"
+            f"model = ElasticNet(\n"
+            f"    alpha={alpha},\n"
+            f"    l1_ratio={l1_ratio},\n"
+            f"    max_iter={max_iter},\n"
+            f"    random_state=42\n"
+            f")"
+        )
+
+    elif model_name == "XGBoost Regressor":
+        n_estimators = hp.get("n_estimators", 100)
+        learning_rate = hp.get("learning_rate", 0.1)
+        max_depth = hp.get("max_depth", 6)
+        subsample = hp.get("subsample", 1.0)
+        colsample_bytree = hp.get("colsample_bytree", 1.0)
+        return (
+            f"model = XGBRegressor(\n"
+            f"    n_estimators={n_estimators},\n"
+            f"    learning_rate={learning_rate},\n"
+            f"    max_depth={max_depth},\n"
+            f"    subsample={subsample},\n"
+            f"    colsample_bytree={colsample_bytree},\n"
+            f"    random_state=42\n"
+            f")"
+        )
+
+    elif model_name == "CatBoost Regressor":
+        iterations = hp.get("iterations", 100)
+        learning_rate = hp.get("learning_rate", 0.03)
+        depth = hp.get("depth", 6)
+        l2_leaf_reg = hp.get("l2_leaf_reg", 3.0)
+        return (
+            f"model = CatBoostRegressor(\n"
+            f"    iterations={iterations},\n"
+            f"    learning_rate={learning_rate},\n"
+            f"    depth={depth},\n"
+            f"    l2_leaf_reg={l2_leaf_reg},\n"
+            f"    random_seed=42,\n"
+            f"    verbose=0\n"
+            f")"
+        )
+
+    elif model_name == "XGBoost Classifier":
+        n_estimators = hp.get("n_estimators", 100)
+        learning_rate = hp.get("learning_rate", 0.1)
+        max_depth = hp.get("max_depth", 6)
+        subsample = hp.get("subsample", 1.0)
+        colsample_bytree = hp.get("colsample_bytree", 1.0)
+        return (
+            f"model = XGBClassifier(\n"
+            f"    n_estimators={n_estimators},\n"
+            f"    learning_rate={learning_rate},\n"
+            f"    max_depth={max_depth},\n"
+            f"    subsample={subsample},\n"
+            f"    colsample_bytree={colsample_bytree},\n"
+            f"    random_state=42\n"
+            f")"
+        )
+
+    elif model_name == "CatBoost Classifier":
+        iterations = hp.get("iterations", 100)
+        learning_rate = hp.get("learning_rate", 0.03)
+        depth = hp.get("depth", 6)
+        l2_leaf_reg = hp.get("l2_leaf_reg", 3.0)
+        return (
+            f"model = CatBoostClassifier(\n"
+            f"    iterations={iterations},\n"
+            f"    learning_rate={learning_rate},\n"
+            f"    depth={depth},\n"
+            f"    l2_leaf_reg={l2_leaf_reg},\n"
+            f"    random_seed=42,\n"
+            f"    verbose=0\n"
             f")"
         )
         
@@ -279,7 +347,7 @@ def generate_python_script(context: ExportContext) -> str:
     # Header and comments
     code = f'''# ==============================================================================
 # MACHINE LEARNING PIPELINE
-# Generated by ML Studio
+# Generated by Solvosys
 # ==============================================================================
 # This script contains the exact data pipeline, preprocessing, model configuration,
 # training, and evaluation steps used during your session.

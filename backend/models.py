@@ -7,7 +7,9 @@ from sklearn.model_selection import (
 
 from sklearn.linear_model import (
     LinearRegression,
-    LogisticRegression
+    LogisticRegression,
+    Lasso,
+    ElasticNet
 )
 
 from sklearn.preprocessing import PolynomialFeatures
@@ -23,10 +25,8 @@ from sklearn.ensemble import (
     RandomForestClassifier
 )
 
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.naive_bayes import GaussianNB
-from sklearn.svm import SVC
-from sklearn.pipeline import Pipeline
+from xgboost import XGBRegressor, XGBClassifier
+from catboost import CatBoostRegressor, CatBoostClassifier
 from preprocessing import build_preprocessor
 
 
@@ -54,6 +54,21 @@ REGRESSION_MODELS = {
             )
         ]),
 
+    "Lasso Regression":
+        lambda hp: Lasso(
+            alpha=hp.get("alpha", 1.0),
+            max_iter=hp.get("max_iter", 1000),
+            random_state=42
+        ),
+
+    "Elastic Net":
+        lambda hp: ElasticNet(
+            alpha=hp.get("alpha", 1.0),
+            l1_ratio=hp.get("l1_ratio", 0.5),
+            max_iter=hp.get("max_iter", 1000),
+            random_state=42
+        ),
+
     "Decision Tree":
         lambda hp: DecisionTreeRegressor(
             random_state=42,
@@ -70,6 +85,26 @@ REGRESSION_MODELS = {
             min_samples_leaf=hp.get("min_samples_leaf", 1),
             max_features=hp.get("max_features", "sqrt"),
             random_state=42
+        ),
+
+    "XGBoost Regressor":
+        lambda hp: XGBRegressor(
+            n_estimators=hp.get("n_estimators", 100),
+            learning_rate=hp.get("learning_rate", 0.1),
+            max_depth=hp.get("max_depth", 6),
+            subsample=hp.get("subsample", 1.0),
+            colsample_bytree=hp.get("colsample_bytree", 1.0),
+            random_state=42
+        ),
+
+    "CatBoost Regressor":
+        lambda hp: CatBoostRegressor(
+            iterations=hp.get("iterations", 100),
+            learning_rate=hp.get("learning_rate", 0.03),
+            depth=hp.get("depth", 6),
+            l2_leaf_reg=hp.get("l2_leaf_reg", 3.0),
+            random_seed=42,
+            verbose=0
         )
 
 }
@@ -79,14 +114,11 @@ CLASSIFICATION_MODELS = {
 
     "Logistic Regression":
         lambda hp: LogisticRegression(
+            C=hp.get("C", 1.0),
+            solver=hp.get("solver", "lbfgs"),
+            max_iter=hp.get("max_iter", 1000)
+        ),
 
-                C=hp.get("C", 1.0),
-
-                solver=hp.get("solver", "lbfgs"),
-
-                max_iter=hp.get("max_iter", 1000)
-
-    ),
     "Decision Tree":
         lambda hp: DecisionTreeClassifier(
             random_state=42,
@@ -105,50 +137,25 @@ CLASSIFICATION_MODELS = {
             random_state=42
         ),
 
-    "K-Nearest Neighbors":
-        lambda hp: KNeighborsClassifier(
+    "XGBoost Classifier":
+        lambda hp: XGBClassifier(
+            n_estimators=hp.get("n_estimators", 100),
+            learning_rate=hp.get("learning_rate", 0.1),
+            max_depth=hp.get("max_depth", 6),
+            subsample=hp.get("subsample", 1.0),
+            colsample_bytree=hp.get("colsample_bytree", 1.0),
+            random_state=42
+        ),
 
-    n_neighbors=hp.get(
-        "n_neighbors",
-        5
-    ),
-
-    weights=hp.get(
-        "weights",
-        "uniform"
-    ),
-
-    metric=hp.get(
-        "metric",
-        "minkowski"
-    )
-
-),
-
-    "Naive Bayes":
-        lambda hp: GaussianNB(),
-
-    "Support Vector Machine":
-        lambda hp: SVC(
-
-    C=hp.get(
-        "C",
-        1.0
-    ),
-
-    kernel=hp.get(
-        "kernel",
-        "rbf"
-    ),
-
-    gamma=hp.get(
-        "gamma",
-        "scale"
-    ),
-
-    probability=True
-
-)
+    "CatBoost Classifier":
+        lambda hp: CatBoostClassifier(
+            iterations=hp.get("iterations", 100),
+            learning_rate=hp.get("learning_rate", 0.03),
+            depth=hp.get("depth", 6),
+            l2_leaf_reg=hp.get("l2_leaf_reg", 3.0),
+            random_seed=42,
+            verbose=0
+        )
 
 }
 
@@ -381,6 +388,20 @@ def train_model(
 
         )
 
+        if hasattr(pipeline, "predict_proba"):
+            try:
+                y_prob = cross_val_predict(
+                    pipeline,
+                    X,
+                    y,
+                    cv=cv,
+                    method="predict_proba"
+                )[:, 1]
+            except Exception:
+                y_prob = None
+        else:
+            y_prob = None
+
         pipeline.fit(
             X,
             y
@@ -410,6 +431,8 @@ def train_model(
 
             "y_test": y,
 
-            "y_test_pred": y_pred
+            "y_test_pred": y_pred,
+
+            "y_test_prob": y_prob
 
         }

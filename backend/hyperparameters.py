@@ -65,86 +65,81 @@ def logistic_regression_params():
 
     return params
 # ==========================================================
-# KNN
+# Lasso Regression
 # ==========================================================
 
-def knn_params():
-
+def lasso_regression_params():
     params = {}
-
-    params["n_neighbors"] = st.slider(
-        "Number of Neighbors",
-        1,
-        30,
-        5
-    )
-
-    params["weights"] = st.selectbox(
-        "Weights",
-        [
-            "uniform",
-            "distance"
-        ]
-    )
-
-    params["metric"] = st.selectbox(
-        "Distance Metric",
-        [
-            "minkowski",
-            "euclidean",
-            "manhattan"
-        ]
-    )
-
+    params["alpha"] = st.slider("Alpha (Regularization)", 0.0001, 10.0, 1.0, step=0.0001)
+    params["max_iter"] = st.slider("Maximum Iterations", 100, 10000, 1000, step=100)
+    params["random_state"] = 42
     return params
 
 # ==========================================================
-# Support Vector Machine
+# Elastic Net
 # ==========================================================
 
-def svm_params():
-
+def elastic_net_params():
     params = {}
-
-    params["C"] = st.slider(
-        "Regularization (C)",
-        0.01,
-        10.0,
-        1.0,
-        step=0.01
-    )
-
-    params["kernel"] = st.selectbox(
-        "Kernel",
-        [
-            "rbf",
-            "linear",
-            "poly",
-            "sigmoid"
-        ]
-    )
-
-    params["gamma"] = st.selectbox(
-        "Gamma",
-        [
-            "scale",
-            "auto"
-        ]
-    )
-
+    params["alpha"] = st.slider("Alpha (Regularization)", 0.0001, 10.0, 1.0, step=0.0001)
+    params["l1_ratio"] = st.slider("L1 Ratio (l1_ratio)", 0.0, 1.0, 0.5, step=0.01)
+    params["max_iter"] = st.slider("Maximum Iterations", 100, 10000, 1000, step=100)
+    params["random_state"] = 42
     return params
 
 # ==========================================================
-# Naive Bayes
+# XGBoost Regressor
 # ==========================================================
 
-def naive_bayes_params():
+def xgboost_regressor_params():
+    params = {}
+    params["n_estimators"] = st.slider("Number of Boosting Rounds (n_estimators)", 10, 1000, 100, step=10)
+    params["learning_rate"] = st.slider("Learning Rate (learning_rate)", 0.001, 1.0, 0.1, step=0.001)
+    params["max_depth"] = st.slider("Maximum Depth (max_depth)", 1, 20, 6)
+    params["subsample"] = st.slider("Subsample Ratio (subsample)", 0.1, 1.0, 1.0, step=0.05)
+    params["colsample_bytree"] = st.slider("Column Sample Ratio (colsample_bytree)", 0.1, 1.0, 1.0, step=0.05)
+    params["random_state"] = 42
+    return params
 
-    st.info(
-        "Gaussian Naive Bayes has no tunable hyperparameters."
-    )
+# ==========================================================
+# CatBoost Regressor
+# ==========================================================
 
-    return {}
+def catboost_regressor_params():
+    params = {}
+    params["iterations"] = st.slider("Number of Iterations (iterations)", 10, 1000, 100, step=10)
+    params["learning_rate"] = st.slider("Learning Rate (learning_rate)", 0.001, 1.0, 0.03, step=0.001)
+    params["depth"] = st.slider("Tree Depth (depth)", 1, 16, 6)
+    params["l2_leaf_reg"] = st.slider("L2 Leaf Regularization (l2_leaf_reg)", 0.1, 10.0, 3.0, step=0.1)
+    params["random_seed"] = 42
+    return params
+
+# ==========================================================
+# XGBoost Classifier
+# ==========================================================
+
+def xgboost_classifier_params():
+    params = {}
+    params["n_estimators"] = st.slider("Number of Boosting Rounds (n_estimators)", 10, 1000, 100, step=10)
+    params["learning_rate"] = st.slider("Learning Rate (learning_rate)", 0.001, 1.0, 0.1, step=0.001)
+    params["max_depth"] = st.slider("Maximum Depth (max_depth)", 1, 20, 6)
+    params["subsample"] = st.slider("Subsample Ratio (subsample)", 0.1, 1.0, 1.0, step=0.05)
+    params["colsample_bytree"] = st.slider("Column Sample Ratio (colsample_bytree)", 0.1, 1.0, 1.0, step=0.05)
+    params["random_state"] = 42
+    return params
+
+# ==========================================================
+# CatBoost Classifier
+# ==========================================================
+
+def catboost_classifier_params():
+    params = {}
+    params["iterations"] = st.slider("Number of Iterations (iterations)", 10, 1000, 100, step=10)
+    params["learning_rate"] = st.slider("Learning Rate (learning_rate)", 0.001, 1.0, 0.03, step=0.001)
+    params["depth"] = st.slider("Tree Depth (depth)", 1, 16, 6)
+    params["l2_leaf_reg"] = st.slider("L2 Leaf Regularization (l2_leaf_reg)", 0.1, 10.0, 3.0, step=0.1)
+    params["random_seed"] = 42
+    return params
 
 
 # ==========================================================
@@ -251,23 +246,32 @@ MODEL_PARAMETER_MAP = {
     "Polynomial Regression":
         polynomial_regression_params,
 
+    "Lasso Regression":
+        lasso_regression_params,
+
+    "Elastic Net":
+        elastic_net_params,
+
     "Decision Tree":
         decision_tree_params,
 
     "Random Forest":
         random_forest_params,
 
+    "XGBoost Regressor":
+        xgboost_regressor_params,
+
+    "CatBoost Regressor":
+        catboost_regressor_params,
+
     "Logistic Regression":
         logistic_regression_params,
 
-    "K-Nearest Neighbors":
-        knn_params,
+    "XGBoost Classifier":
+        xgboost_classifier_params,
 
-    "Support Vector Machine":
-        svm_params,
-
-    "Naive Bayes":
-        naive_bayes_params
+    "CatBoost Classifier":
+        catboost_classifier_params
 
 }
 
