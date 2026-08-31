@@ -1,0 +1,90 @@
+# ==============================================================================
+# SolvoSys — Git Ignore Configuration
+# ==============================================================================
+
+# Python Bytecode & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+*.pyo
+.pytest_cache/
+
+# Python Virtual Environments
+venv/
+.venv/
+env/
+backend/venv/
+backend/.venv/
+
+# Node.js / Next.js Build Artifacts
+node_modules/
+frontend/node_modules/
+.next/
+frontend/.next/
+out/
+frontend/out/
+dist/
+build/
+.pnp
+.pnp.js
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment Variables & Secrets
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+!.env.example
+
+# SSH Credentials & Key Material (CRITICAL)
+.ssh/
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+*.pem
+*.key
+known_hosts
+authorized_keys
+
+# Local Generated Data & Scratch Output
+backend/outputs/
+backend/datasets/*.csv
+!backend/datasets/.gitkeep
+temp_*
+test_dataset_*
+solvosys_hpc_exp_*
+*.pdf
+*.zip
+*.csv
+*.png
+*.jpg
+*.jpeg
+!frontend/public/*.png
+!frontend/public/*.svg
+!frontend/public/*.ico
+!assets/*.png
+!assets/*.svg
+!assets/*.ico
+
+# Logs
+logs/
+*.log
+
+# IDE & Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Model Cache & Checkpoints
+catboost_info/
+.ipynb_checkpoints/

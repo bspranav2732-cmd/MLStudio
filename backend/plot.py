@@ -1,0 +1,962 @@
+
+from io import BytesIO
+import os
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import streamlit as st
+
+from sklearn.metrics import (
+    confusion_matrix,
+    roc_curve,
+    auc,
+    precision_recall_curve
+)
+
+# ==========================================================
+# Publication Style
+# ==========================================================
+
+try:
+    from theme import get_plot_theme
+except ImportError:
+    try:
+        from backend.theme import get_plot_theme
+    except ImportError:
+        get_plot_theme = None
+
+def set_publication_style():
+    theme = "Light"
+    try:
+        theme = st.session_state.get("theme", "Light")
+    except Exception:
+        pass
+    if get_plot_theme is not None:
+        try:
+            plot_theme = get_plot_theme(theme)
+            plt.rcParams.update(plot_theme["rc"])
+            sns.set_theme(style=plot_theme["style"], rc=plot_theme["rc"])
+            return
+        except Exception:
+            pass
+    sns.set_theme(style="whitegrid")
+   
+# ==========================================================
+# Figure Size
+# ==========================================================
+
+def get_figure_size(
+    figure_width
+):
+
+    sizes = {
+        "Single Column (90 mm)": (6, 4.5),
+        "Double Column (190 mm)": (8, 6)
+    }
+
+    return sizes.get(
+        figure_width,
+        (8, 6)
+    )
+# ==========================================================
+# Setup Figure
+# ==========================================================
+
+def setup_figure(
+    figure_width
+):
+    set_publication_style()
+    fig, ax = plt.subplots(
+        figsize=get_figure_size(
+            figure_width
+        )
+    )
+    return fig, ax
+
+def get_target_label(results):
+    target = results.get(
+        "target_name",
+        "Target"
+    )
+    unit = results.get(
+        "target_unit",
+        ""
+    )
+    unit = results.get(
+        "target_unit",
+        ""
+    )
+    if unit.strip():
+        return f"{target} ({unit})"
+    return target
+
+def clean_feature_names(
+
+    names
+
+):
+
+    cleaned = []
+
+    for name in names:
+
+        name = name.replace(
+
+            "num__",
+
+            ""
+
+        )
+
+        name = name.replace(
+
+            "cat__",
+
+            ""
+
+        )
+
+        cleaned.append(name)
+
+    return cleaned
+
+def get_figure_size(width):
+    if width == "Single Column (90 mm)":
+        return (6, 4.5)
+    elif width == "Double Column (190 mm)":
+        return (8, 6)
+    return (8, 6)
+
+# Regression Data
+def get_regression_data(
+    results
+):
+
+    return (
+        results["y_test"],
+        results["y_test_pred"],
+        get_target_label(results)
+    )
+
+# Classification Data
+def get_classification_data(
+    results
+):
+
+    return (
+        results["y_test"],
+        results["y_test_pred"]
+    )
+
+def plot_reference_line(
+    ax,
+    y_true,
+    y_pred
+
+):
+    minimum = min(
+        np.min(y_true),
+        np.min(y_pred)
+    )
+
+    maximum = max(
+        np.max(y_true),
+        np.max(y_pred)
+
+    )
+
+    ax.plot(
+        [minimum, maximum],
+        [minimum, maximum],
+        "r--",
+        linewidth=2,
+        label="Ideal Fit (y=x)"
+    )
+
+# Common Formatting
+def apply_plot_style(
+    ax,
+    xlabel,
+    ylabel,
+    legend=True,
+    legend_loc="lower right",
+    grid=True
+):
+    
+    ax.set_xlabel(
+        xlabel
+    )
+    ax.set_ylabel(
+        ylabel
+    )
+
+    if grid:
+        ax.grid(
+            True,
+            linestyle="-",
+            alpha=0.5,
+            color="lightgray"
+        )
+    
+    if legend:
+        ax.legend(
+            loc=legend_loc,
+            fontsize=10,
+            frameon=True,
+            edgecolor="gray"
+        )
+    
+    ax.tick_params(
+        direction="out",
+        length=5,
+        width=1
+    )
+    
+    plt.tight_layout()
+
+def save_figure(
+    fig,
+    filename,
+    export_format,
+    plot_quality
+):
+    
+    dpi_map = {
+        "Screen Preview (150 DPI)":150,
+        "Publication (300 DPI)":300,
+        "High Quality (600 DPI)":600,
+        "Ultra Quality (1200 DPI)":1200
+    }
+    dpi = dpi_map.get(
+        plot_quality,
+        300
+    )
+
+    os.makedirs(
+        "outputs",
+        exist_ok=True
+
+    )
+
+    filepath = os.path.join(
+        "outputs",
+        f"{filename}.{export_format.lower()}"
+
+    )
+
+    fig.savefig(
+        filepath,
+        dpi=dpi,
+        bbox_inches="tight"
+    )
+    return filepath
+
+# Actual vs Predicted
+def plot_actual_vs_predicted(
+    results,
+    figure_width
+):
+
+    fig, ax = setup_figure(figure_width)
+
+    y_true, y_pred, label = get_regression_data(results)
+
+    ax.scatter(
+        y_true,
+        y_pred,
+        alpha=0.6,
+        color="royalblue",
+        edgecolor="k",
+        s=70,
+        label="Predictions"
+    )
+
+    plot_reference_line(
+        ax,
+        y_true,
+        y_pred
+    )
+
+    apply_plot_style(
+        ax,
+        xlabel=f"Actual {label}",
+        ylabel=f"Predicted {label}"
+    )
+
+    return fig
+
+# Residual Plot
+def plot_residual_plot(
+    results,
+    figure_width
+):
+
+    fig, ax = setup_figure(figure_width)
+    y_true, y_pred, label = get_regression_data(results)
+    residuals = y_true - y_pred
+
+    ax.scatter(
+        y_pred,
+        residuals,
+        alpha=0.6,
+        color="royalblue",
+        edgecolor="k",
+        s=70
+    )
+
+    ax.axhline(
+        y=0,
+        color="red",
+        linestyle="--",
+        linewidth=2
+    )
+
+    apply_plot_style(
+        ax,
+        xlabel=f"Predicted {label}",
+        ylabel=f"Residual ({label})",
+        legend=False
+    )
+
+    return fig
+
+
+# Residual Distribution
+def plot_residual_distribution(
+    results,
+    figure_width
+):
+
+    fig, ax = setup_figure(figure_width)
+    y_true, y_pred, label = get_regression_data(results)
+    residuals = y_true - y_pred
+
+    ax.hist(
+        residuals,
+        bins=20,
+        color="royalblue",
+        edgecolor="black",
+        alpha=0.8
+    )
+
+    apply_plot_style(
+        ax,
+        xlabel=f"Residual ({label})",
+        ylabel="Frequency",
+        legend=False
+    )
+
+    return fig
+# ==========================================================
+# Prediction Error
+# ==========================================================
+
+def plot_prediction_error(
+    results,
+    figure_width
+):
+
+    fig, ax = setup_figure(figure_width)
+
+    y_true, y_pred, label = get_regression_data(results)
+
+    error = y_pred - y_true
+
+    ax.scatter(
+        y_true,
+        error,
+        alpha=0.6,
+        color="royalblue",
+        edgecolor="k",
+        s=70
+    )
+
+    ax.axhline(
+        y=0,
+        color="red",
+        linestyle="--",
+        linewidth=2
+    )
+
+    apply_plot_style(
+        ax,
+        xlabel=f"Actual {label}",
+        ylabel=f"Prediction Error ({label})",
+        legend=False
+    )
+
+    return fig
+
+# ==========================================================
+# Confusion Matrix
+# ==========================================================
+
+def plot_confusion_matrix(
+    results,
+    figure_width
+):
+
+    fig, ax = setup_figure(
+        figure_width
+    )
+
+    y_true, y_pred = get_classification_data(
+        results
+    )
+
+    cm = confusion_matrix(
+        y_true,
+        y_pred
+    )
+
+    sns.heatmap(
+
+        cm,
+
+        annot=True,
+
+        fmt="d",
+
+        cmap="Blues",
+
+        square=True,
+
+        linewidths=0.8,
+
+        linecolor="white",
+
+        cbar=False,
+
+        annot_kws={
+            "size":12,
+            "weight":"bold"
+        },
+
+        ax=ax
+
+    )
+
+    apply_plot_style(
+
+        ax,
+
+        xlabel="Predicted Class",
+
+        ylabel="Actual Class",
+
+        legend=False,
+
+        grid=False
+
+    )
+
+    return fig
+
+# ==========================================================
+# ROC Curve
+# ==========================================================
+
+def plot_roc_curve(
+    results,
+    figure_width
+):
+
+    if results["y_test_prob"] is None:
+
+        st.warning(
+            "ROC Curve unavailable."
+        )
+
+        return None
+
+    fig, ax = setup_figure(
+        figure_width
+    )
+
+    fpr, tpr, _ = roc_curve(
+
+        results["y_test"],
+
+        results["y_test_prob"]
+
+    )
+
+    roc_auc = auc(
+        fpr,
+        tpr
+    )
+
+    ax.plot(
+
+        fpr,
+
+        tpr,
+
+        color="royalblue",
+
+        linewidth=2,
+
+        label=f"AUC = {roc_auc:.3f}"
+
+    )
+
+    ax.plot(
+
+        [0,1],
+
+        [0,1],
+
+        "r--",
+
+        linewidth=2
+
+    )
+
+    apply_plot_style(
+
+        ax,
+
+        xlabel="False Positive Rate",
+
+        ylabel="True Positive Rate"
+
+    )
+
+    return fig
+
+# ==========================================================
+# Precision Recall Curve
+# ==========================================================
+
+def plot_precision_recall_curve(
+    results,
+    figure_width
+):
+
+    if results["y_test_prob"] is None:
+
+        st.warning(
+            "Precision-Recall Curve unavailable."
+        )
+
+        return None
+
+    fig, ax = setup_figure(
+        figure_width
+    )
+
+    precision, recall, _ = precision_recall_curve(
+
+        results["y_test"],
+
+        results["y_test_prob"]
+
+    )
+
+    ax.plot(
+
+        recall,
+
+        precision,
+
+        color="royalblue",
+
+        linewidth=2
+
+    )
+
+    apply_plot_style(
+
+        ax,
+
+        xlabel="Recall",
+
+        ylabel="Precision",
+
+        legend=False
+
+    )
+
+    return fig
+
+# ==========================================================
+# Feature Importance
+# ==========================================================
+
+def aggregate_feature_importances(
+    feature_names,
+    importances,
+    original_features
+):
+    """
+    Aggregate one-hot encoded feature importances back to their original feature names.
+    """
+    aggregated = {}
+    
+    # We clean the names (remove "num__" and "cat__")
+    cleaned_names = []
+    for name in feature_names:
+        name = name.replace("num__", "").replace("cat__", "")
+        cleaned_names.append(name)
+        
+    for name, imp in zip(cleaned_names, importances):
+        matched = False
+        # Sort original features in descending order of length so that Embarked_Date matches before Embarked
+        sorted_orig = sorted(original_features, key=len, reverse=True)
+        
+        for orig in sorted_orig:
+            if name == orig or name.startswith(orig + "_"):
+                aggregated[orig] = aggregated.get(orig, 0.0) + imp
+                matched = True
+                break
+                
+        if not matched:
+            aggregated[name] = aggregated.get(name, 0.0) + imp
+            
+    return list(aggregated.keys()), list(aggregated.values())
+
+
+def plot_feature_importance(
+
+    results,
+    figure_width
+
+):
+
+    pipeline = results["pipeline"]
+    model = pipeline.named_steps["model"]
+    if not hasattr(
+
+        model,
+
+        "feature_importances_"
+
+    ):
+
+        st.warning(
+
+            "Feature importance is not available for this model."
+
+        )
+
+        return None
+    
+    importance = model.feature_importances_
+    
+    # Get original features DataFrame to extract original feature list
+    X_df = results.get("X_train", results.get("X"))
+    if X_df is not None:
+        original_features = list(X_df.columns)
+    else:
+        original_features = []
+
+    # Aggregate one-hot encoded importances back to original features
+    aggregated_names, aggregated_imps = aggregate_feature_importances(
+        results["feature_names"],
+        importance,
+        original_features
+    )
+
+    # Convert to numpy arrays for sorting
+    aggregated_names = np.array(aggregated_names)
+    aggregated_imps = np.array(aggregated_imps)
+
+    # Sort in descending order
+    order = np.argsort(aggregated_imps)[::-1]
+    aggregated_imps = aggregated_imps[order]
+    aggregated_names = aggregated_names[order]
+
+    # Keep top 10-15 (e.g. 15) features
+    max_features = 15
+    if len(aggregated_names) > max_features:
+        aggregated_imps = aggregated_imps[:max_features]
+        aggregated_names = aggregated_names[:max_features]
+
+    fig, ax = setup_figure(
+        figure_width
+    )
+
+    ax.barh(
+        aggregated_names[::-1],
+        aggregated_imps[::-1],
+        color="royalblue",
+        edgecolor="black"
+    )
+
+    apply_plot_style(
+        ax,
+        xlabel="Feature Importance",
+        ylabel="Features",
+        legend=False
+    )
+
+    return fig
+
+
+# ==========================================================
+# Class Distribution
+# ==========================================================
+
+def plot_class_distribution(
+    results,
+    figure_width
+):
+    """
+    Plot the distribution of classes in the target variable.
+    """
+    # Use y_train if available, otherwise y_test
+    y_series = results.get("y_train", results.get("y_test"))
+    
+    if y_series is None:
+        st.warning("Target class distribution data is not available.")
+        return None
+        
+    # Count samples per class
+    class_counts = pd.Series(y_series).value_counts().sort_index()
+    
+    fig, ax = setup_figure(figure_width)
+    
+    # Plot vertical bars
+    classes = [str(c) for c in class_counts.index]
+    counts = class_counts.values
+    
+    ax.bar(
+        classes,
+        counts,
+        color="royalblue",
+        edgecolor="black",
+        alpha=0.8,
+        width=0.5
+    )
+    
+    # Add count label on top of each bar
+    for i, count in enumerate(counts):
+        ax.annotate(
+            str(count),
+            xy=(i, count),
+            xytext=(0, 3),  # 3 points vertical offset
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=10,
+            weight="bold"
+        )
+        
+    # Style formatting
+    target_label = results.get("target_name", "Target")
+    apply_plot_style(
+        ax,
+        xlabel=target_label,
+        ylabel="Sample Count",
+        legend=False
+    )
+    
+    return fig
+
+
+# ==========================================================
+# Learning Curve
+# ==========================================================
+from sklearn.model_selection import learning_curve
+
+def plot_learning_curve(results, figure_width):
+    fig, ax = setup_figure(figure_width)
+    pipeline = results["pipeline"]
+    X = results.get("X_train", results.get("X"))
+    y = results.get("y_train", results.get("y"))
+    
+    if X is None or y is None:
+        return None
+        
+    if results["problem_type"] == "Classification":
+        min_class_count = pd.Series(y).value_counts().min()
+        cv = min(5, min_class_count)
+        if cv < 2:
+            st.warning("Dataset is too small or imbalanced for Learning Curve (requires at least 2 samples per class).")
+            return None
+        scoring = "accuracy"
+    else:
+        cv = min(5, len(y) // 2)
+        if cv < 2:
+            st.warning("Dataset is too small for Learning Curve.")
+            return None
+        scoring = "r2"
+    
+    with st.spinner("Generating Learning Curve (this may take a moment)..."):
+        train_sizes, train_scores, test_scores = learning_curve(
+            pipeline, X, y, cv=cv, scoring=scoring, n_jobs=-1,
+            train_sizes=np.linspace(0.1, 1.0, 5)
+        )
+        
+    train_scores_mean = np.mean(train_scores, axis=1)
+    train_scores_std = np.std(train_scores, axis=1)
+    test_scores_mean = np.mean(test_scores, axis=1)
+    test_scores_std = np.std(test_scores, axis=1)
+    
+    ax.fill_between(train_sizes, train_scores_mean - train_scores_std,
+                     train_scores_mean + train_scores_std, alpha=0.1, color="royalblue")
+    ax.fill_between(train_sizes, test_scores_mean - test_scores_std,
+                     test_scores_mean + test_scores_std, alpha=0.1, color="darkorange")
+    ax.plot(train_sizes, train_scores_mean, 'o-', color="royalblue", label="Training score")
+    ax.plot(train_sizes, test_scores_mean, 'o-', color="darkorange", label="Cross-validation score")
+             
+    apply_plot_style(
+        ax,
+        xlabel="Training Examples",
+        ylabel="Score",
+        legend=True
+    )
+    return fig
+
+
+# ==========================================================
+# Random Forest Convergence
+# ==========================================================
+
+def plot_rf_convergence(results, figure_width):
+    if results["model_name"] != "Random Forest" or "oob_score" not in results:
+        st.warning("OOB Score Convergence is only available for Random Forest with OOB enabled.")
+        return None
+        
+    pipeline = results["pipeline"]
+    model = pipeline.named_steps["model"]
+    
+    X = results.get("X_train", results.get("X"))
+    y = results.get("y_train", results.get("y"))
+    
+    with st.spinner("Generating RF Convergence Plot..."):
+        X_transformed = pipeline.named_steps["preprocessor"].transform(X)
+        
+        from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+        rf_class = RandomForestRegressor if results["problem_type"] == "Regression" else RandomForestClassifier
+        
+        n_estimators = model.n_estimators
+        min_estimators = 15
+        
+        oob_scores = []
+        tree_range = list(range(min_estimators, n_estimators + 1, max(1, n_estimators//10)))
+        
+        tmp_model = rf_class(**model.get_params())
+        tmp_model.set_params(warm_start=True, oob_score=True)
+        
+        for i in tree_range:
+            tmp_model.set_params(n_estimators=i)
+            tmp_model.fit(X_transformed, y)
+            oob_scores.append(tmp_model.oob_score_)
+            
+    fig, ax = setup_figure(figure_width)
+    ax.plot(tree_range, oob_scores, 'o-', color="royalblue", linewidth=2)
+    
+    apply_plot_style(
+        ax,
+        xlabel="Number of Trees",
+        ylabel="OOB Score",
+        legend=False
+    )
+    return fig
+
+
+# ==========================================================
+# Regression Plot Dictionary
+# ==========================================================
+
+REGRESSION_PLOTS = {
+    "Actual vs Predicted": plot_actual_vs_predicted,
+    "Residual Plot": plot_residual_plot,
+    "Residual Distribution": plot_residual_distribution,
+    "Prediction Error": plot_prediction_error,
+    "Feature Importance": plot_feature_importance,
+    "Learning Curve": plot_learning_curve,
+    "RF Convergence (OOB)": plot_rf_convergence
+}
+
+# Classification Plot Dictionary
+
+CLASSIFICATION_PLOTS = {
+    "Confusion Matrix": plot_confusion_matrix,
+    "ROC Curve": plot_roc_curve,
+    "Precision-Recall Curve": plot_precision_recall_curve,
+    "Feature Importance": plot_feature_importance,
+    "Class Distribution": plot_class_distribution,
+    "Learning Curve": plot_learning_curve,
+    "RF Convergence (OOB)": plot_rf_convergence
+}
+
+# Show Plots (Cached)
+def show_plots(
+    results,
+    selected_plots,
+    figure_width,
+    plot_quality,
+    export_format
+):
+    # Create a cache key based on configuration
+    cache_key = str((selected_plots, figure_width, plot_quality, export_format))
+
+    if "generated_plots" not in st.session_state or st.session_state.get("generated_plots_key") != cache_key:
+        generated_plots = []
+        
+        plot_dict = REGRESSION_PLOTS if results["problem_type"] == "Regression" else CLASSIFICATION_PLOTS
+        prefix = "reg" if results["problem_type"] == "Regression" else "clf"
+        
+        for plot_name in selected_plots:
+            if plot_name not in plot_dict:
+                continue
+
+            fig = plot_dict[plot_name](
+                results,
+                figure_width
+            )
+
+            if fig is None:
+                continue
+
+            buffer = BytesIO()
+            dpi_val = {
+                "Screen Preview (150 DPI)": 150,
+                "Publication (300 DPI)": 300,
+                "High Quality (600 DPI)": 600,
+                "Ultra Quality (1200 DPI)": 1200
+            }.get(plot_quality, 300)
+
+            fig.savefig(
+                buffer,
+                format=export_format.lower(),
+                dpi=dpi_val,
+                bbox_inches="tight"
+            )
+            buffer.seek(0)
+
+            # Automatically write the generated plot to the outputs directory
+            save_figure(fig, plot_name, export_format, plot_quality)
+            
+            img_bytes = buffer.getvalue()
+            generated_plots.append({
+                "name": plot_name,
+                "bytes": img_bytes,
+                "prefix": prefix
+            })
+            
+            plt.close(fig)
+
+        st.session_state["generated_plots"] = generated_plots
+        st.session_state["generated_plots_key"] = cache_key
+
+    # Render plots from persistent state
+    for plot_data in st.session_state["generated_plots"]:
+        plot_name = plot_data["name"]
+        img_bytes = plot_data["bytes"]
+        prefix = plot_data["prefix"]
+
+        st.subheader(plot_name)
+        st.image(img_bytes)
+
+        btn_key = f"download_{prefix}_{plot_name.lower().replace(' ', '_')}"
+        st.download_button(
+            label=f"⬇ Download {plot_name}",
+            data=img_bytes,
+            file_name=f"{plot_name}.{export_format.lower()}",
+            mime=f"image/{export_format.lower()}",
+            key=btn_key
+        )

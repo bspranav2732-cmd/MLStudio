@@ -1,0 +1,9 @@
+[server]
+headless = true
+enableCORS = false
+enableXsrfProtection = false
+address = "127.0.0.1"
+
+[browser]
+gatherUsageStats = false
+serverAddress = "127.0.0.1"
